@@ -1016,37 +1016,19 @@ var ablyChannel = null;
 
 function ablyConnect(onReady){
   try{
-    if(ablyClient){
-      try{ ablyClient.close(); }catch(e){}
-      ablyClient = null;
-    }
-    ablyClient = new Ably.Realtime({
-      key: ABLY_KEY,
-      echoMessages: false,
-      closeOnUnload: true
-    });
+    if(ablyClient){ try{ ablyClient.close(); }catch(e){} ablyClient = null; }
+    ablyClient = new Ably.Realtime({key: ABLY_KEY, echoMessages: false});
     var done = false;
-    function finish(){
-      if(done) return;
-      done = true;
-      onReady();
-    }
-    /* v2 用 .on() */
-    ablyClient.connection.on(function(stateChange){
-      var st = stateChange.current || stateChange;
-      if(st === 'connected') finish();
-      if(st === 'failed' || st === 'suspended'){
-        roomMsg('Ably 連線失敗，請重試');
-      }
+    function finish(){ if(done) return; done = true; onReady(); }
+    /* Ably v2 正確寫法 */
+    ablyClient.connection.on('connected', function(){ finish(); });
+    ablyClient.connection.on('failed', function(err){
+      roomMsg('Ably 連線失敗: ' + (err&&err.reason&&err.reason.message||'未知'));
     });
-    /* 若已經是 connected 狀態直接回調 */
+    /* 若已是 connected 直接觸發 */
     if(ablyClient.connection.state === 'connected') finish();
-    setTimeout(function(){
-      if(!done){ roomMsg('Ably 連線逾時，請重試'); }
-    }, 12000);
-  }catch(e){
-    roomMsg('Ably 初始化錯誤: ' + e.message);
-  }
+    setTimeout(function(){ if(!done) roomMsg('Ably 連線逾時，請重試'); }, 10000);
+  }catch(e){ roomMsg('Ably 錯誤: ' + e.message); }
 }
 function ablyJoinChannel(code, onJoined){
   ablyChannel = ablyClient.channels.get('room-' + code);
