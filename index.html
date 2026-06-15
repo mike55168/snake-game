@@ -37,19 +37,20 @@
   header h1 .en{color:var(--accent)}
   header p{font-size:12px;color:var(--text-dim);margin-top:4px;letter-spacing:.06em}
 
-  /* 名字欄位在 header 下方 */
-  .name-bar{
-    display:flex;align-items:center;gap:8px;
-    width:min(94vw,560px);
+  /* 主選單道具說明 — 貼齊頂部 */
+  .home-legend{
+    position:absolute;top:0;left:0;right:0;
+    display:flex;flex-wrap:wrap;justify-content:center;
+    gap:4px 12px;font-size:11.5px;color:var(--text-dim);
+    background:rgba(0,0,0,0.30);
+    border-radius:12px 12px 0 0;
+    padding:7px 10px;
   }
-  .name-bar label{font-size:12px;color:var(--text-dim);white-space:nowrap;letter-spacing:.08em}
-  .name-bar input{
-    flex:1;font-family:'Fredoka','Noto Sans TC',sans-serif;font-size:16px;
-    background:#0E1A12;color:var(--text);border:1.5px solid var(--panel-edge);
-    border-radius:10px;padding:7px 12px;outline:none;
+  .home-legend b{color:var(--text);font-weight:500}
+  /* 主選單中央內容區 */
+  .home-center{
+    display:flex;flex-direction:column;align-items:center;gap:12px;
   }
-  .name-bar input:focus{border-color:var(--accent)}
-  .name-bar input.err{border-color:#F09595}
 
   .stats{display:flex;gap:8px;width:min(94vw,560px)}
   .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;padding:7px 8px;text-align:center}
@@ -115,6 +116,45 @@
   .skin canvas{width:100%;height:28px}
   .skin span{font-size:10px;color:var(--text-dim)}
   .skin.sel span{color:var(--accent)}
+  .skin{position:relative}
+  .skin.locked{opacity:0.28;cursor:not-allowed;filter:grayscale(1)}
+  .skin.locked:after{
+    content:'';position:absolute;inset:0;border-radius:10px;
+    background:rgba(0,0,0,0.55);
+  }
+  .skin.confirmed-badge:after{
+    content:'✓';position:absolute;inset:0;border-radius:10px;
+    background:rgba(30,90,30,0.6);color:#7FE0A0;
+    font-size:20px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .btn-confirm{
+    font-family:'Noto Sans TC',sans-serif;font-weight:700;font-size:14px;
+    padding:8px 24px;background:#3D9B57;color:#fff;border:none;border-radius:999px;
+    cursor:pointer;box-shadow:0 3px 0 #286B3A;transition:transform .08s;
+  }
+  .btn-confirm:active{transform:translateY(2px);box-shadow:0 1px 0 #286B3A}
+  .btn-confirm.done{background:#286B3A;opacity:0.7;pointer-events:none}
+  .countdown-overlay{
+    position:absolute;inset:0;border-radius:12px;
+    background:rgba(10,20,12,0.52);
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .countdown-overlay.show{display:flex}
+  .countdown-num{
+    font-family:'Fredoka',sans-serif;font-weight:600;
+    font-size:clamp(90px,20vw,170px);
+    color:#fff;line-height:1;
+    text-shadow:0 4px 32px rgba(0,0,0,.55);
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  .countdown-num.pop{transform:scale(1.4);opacity:0}
+  .countdown-go{
+    font-family:'Fredoka',sans-serif;font-weight:600;
+    font-size:clamp(40px,9vw,72px);
+    color:var(--accent);
+    text-shadow:0 2px 18px rgba(0,0,0,.45);
+  }
 
   .member-list{
     width:200px;background:#0E1A12;border:1.5px solid var(--panel-edge);
@@ -204,14 +244,7 @@
 
 <header>
   <h1>貪食蛇 <span class="en">Snake Garden</span></h1>
-  <p>單人闖關.多人包廂競賽</p>
 </header>
-
-<!-- 玩家名字(必填) -->
-<div class="name-bar">
-  <label for="global-name">玩家名稱</label>
-  <input id="global-name" maxlength="8" placeholder="輸入名字（必填）" autocomplete="off">
-</div>
 
 <div class="stats">
   <div class="chip"><div class="k" id="k1">分數</div><div class="v" id="v1">0</div></div>
@@ -220,7 +253,7 @@
   <div class="chip hidden" id="chip4"><div class="k" id="k4">目前領先</div><div class="v" id="v4" style="font-size:15px">-</div></div>
 </div>
 
-<!-- 穿牆模式(單人才顯示,在棋盤上方) -->
+<!-- 穿牆模式(單人遊戲中才顯示) -->
 <div class="wrap-bar hidden" id="wrap-bar">
   <input type="checkbox" id="wrap-toggle">
   <label for="wrap-toggle">穿牆模式</label>
@@ -230,10 +263,23 @@
   <canvas id="game" width="840" height="840" aria-label="貪食蛇遊戲畫面" role="img"></canvas>
 
   <div class="screen" id="sc-home">
-    <div class="big">Snake Garden</div>
-    <div class="small">選擇遊戲模式</div>
-    <button class="btn wide" id="bt-single">單人模式</button>
-    <button class="btn wide ghost" id="bt-multi">多人模式</button>
+    <!-- 道具說明固定在最上方 -->
+    <div class="home-legend">
+      <span>🍎 <b>+1格</b></span>
+      <span>🍌 <b>+2格</b></span>
+      <span>⭐ <b>無敵10秒</b></span>
+      <span>🪳 <b>−1格</b></span>
+      <span>💣 <b>−3格</b></span>
+    </div>
+    <div class="home-center">
+      <div class="big">Snake Garden</div>
+      <div class="field">
+        <label>玩家名稱（必填）</label>
+        <input id="global-name" maxlength="8" placeholder="輸入你的名字" autocomplete="off">
+      </div>
+      <button class="btn wide" id="bt-single">單人模式</button>
+      <button class="btn wide ghost" id="bt-multi">多人模式</button>
+    </div>
   </div>
 
   <div class="screen hidden" id="sc-room">
@@ -268,6 +314,10 @@
       <div id="member-list" class="member-list"></div>
     </div>
     <div class="small hidden" id="lobby-wait">等待房主開始遊戲…</div>
+    <!-- 確認角色(多人) -->
+    <div class="row hidden" id="f-confirm">
+      <button class="btn-confirm" id="bt-confirm">✔ 確認角色</button>
+    </div>
     <div class="row">
       <button class="btn ghost" id="bt-lobby-back">返回</button>
       <button class="btn" id="bt-start">開始遊戲</button>
@@ -304,18 +354,14 @@
       <button class="btn" id="bt-again2">再玩一次</button>
     </div>
   </div>
+
+  <!-- 倒數畫面(蓋在所有 screen 上) -->
+  <div class="countdown-overlay" id="cd-overlay">
+    <div class="countdown-num" id="cd-num">3</div>
+  </div>
 </div>
 
-<div class="legend">
-  <span>🍎 <b>+1</b></span>
-  <span>🍌 <b>+2</b></span>
-  <span>⭐ <b>無敵 10 秒</b></span>
-  <span>🪳 <b>−1</b></span>
-  <span>💣 <b>−3</b></span>
-  <span>多人:<b>大蛇</b> 撞 <b>小蛇</b> 可截斷或吃掉</span>
-</div>
-
-<!-- 新版方向鍵 + 暫停 -->
+<!-- 方向鍵 + 暫停 -->
 <div class="controls">
   <div class="dpad">
     <!-- 上下合體長按鍵 -->
@@ -342,8 +388,6 @@
     <span class="pause-label">暫停</span>
   </div>
 </div>
-
-<p class="hint">電腦:<kbd>←↑↓→</kbd> 或 <kbd>WASD</kbd> 移動,<kbd>SPACE</kbd> 暫停(限單人)</p>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -606,37 +650,45 @@ function showResultScreen(){
 function endSingle(){
   clearInterval(timer);
   state = 'over';
+  var finalLen = len(player);
+  player.finalLen = finalLen;
   $('ov-title').textContent = '遊戲結束';
-  $('ov-sub').textContent = '得分 ' + singleScore + ' 分.長度 ' + len(player) + ' 格.最高 ' + bestSingle + ' 分';
+  $('ov-sub').textContent = '得分 ' + singleScore + ' 分.長度 ' + finalLen + ' 格.最高 ' + bestSingle + ' 分';
   show('sc-over');
   sendToSheet([player]);
 }
 function winSingle(){
   clearInterval(timer);
   state = 'over';
+  player.finalLen = len(player);
   $('ov-title').textContent = '你贏了!';
   $('ov-sub').textContent = '小蛇佔滿了整座花園!得分 ' + singleScore + ' 分';
   show('sc-over');
+  sendToSheet([player]);
 }
 
 /* ============ Google 試算表 ============ */
 function sendToSheet(ranked){
   if(!SHEET_URL) return;
   try{
-    var device = /Mobi|Android/i.test(navigator.userAgent) ? '手機' : '電腦';
+    var device = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '手機' : '電腦';
     var rows = ranked.map(function(s){
       return {
         time: new Date().toLocaleString('zh-TW'),
-        name: s.name,
-        length: s.alive ? len(s) : s.finalLen,
+        name: s.name || '玩家',
+        length: s.finalLen || len(s) || 0,
         device: device,
         mode: mode==='single' ? '單人' : '多人'
       };
     });
     var body = new URLSearchParams();
     body.append('payload', JSON.stringify(rows));
-    fetch(SHEET_URL, {method:'POST', mode:'no-cors', body:body});
-  }catch(e){}
+    fetch(SHEET_URL, {method:'POST', mode:'no-cors', body:body})
+      .catch(function(){});
+    /* 備用:用 img ping 確保送出 */
+    var img = new Image();
+    img.src = SHEET_URL + '?payload=' + encodeURIComponent(JSON.stringify(rows));
+  }catch(e){ console.error('sendToSheet error', e); }
 }
 
 /* ============ AI(僅單人模式的電腦蛇) ============ */
@@ -855,17 +907,24 @@ function joinAsPlayer(){
 function myName(){ return ($('global-name').value.trim() || ''); }
 function requireName(){
   var n = myName();
+  var inp = $('global-name');
   if(!n){
-    $('global-name').classList.add('err');
-    $('global-name').focus();
-    $('global-name').placeholder = '請先輸入名字！';
+    inp.style.borderColor = '#F09595';
+    inp.focus();
+    inp.placeholder = '請先輸入名字！';
     return false;
   }
-  $('global-name').classList.remove('err');
+  inp.style.borderColor = '';
   return true;
 }
+$('global-name').addEventListener('input', function(){
+  this.style.borderColor = '';
+  syncMyProfile();
+});
 function syncMyProfile(){
-  if(mode==='multi' && myPlayerRef) myPlayerRef.update({name: myName()||'玩家', skin: selSkin});
+  if(mode==='multi' && myPlayerRef){
+    myPlayerRef.update({name: myName()||'玩家', skin: selSkin, confirmed: myConfirmed ? 1 : 0});
+  }
 }
 
 function attachRoomListeners(){
@@ -881,8 +940,8 @@ function attachRoomListeners(){
   });
   listen(roomRef.child('state'), 'value', function(snap){
     var st = snap.val();
-    if(st === 'play' && state !== 'play'){
-      if(isHost) return; /* 房主已在 hostStartGame 內進入 */
+    if((st === 'play' || st === 'countdown') && state !== 'play'){
+      if(isHost) return;
       roomRef.child('roster').once('value').then(function(rs){
         clientEnterGame(rs.val() || []);
       });
@@ -1009,13 +1068,17 @@ function hostStartGame(){
   roomRef.child('results').remove();
   roomRef.child('roster').set(roster);
   publishFrame();
-  roomRef.child('state').set('play');
+  /* 廣播倒數指令 */
+  roomRef.child('state').set('countdown');
   state = 'play';
   show(null);
   lastTick = now();
   tickN = 0;
   updateHud();
-  restartTimer();
+  runCountdown(function(){
+    roomRef.child('state').set('play');
+    restartTimer();
+  });
 }
 function clientEnterGame(roster){
   resetWorld();
@@ -1031,6 +1094,7 @@ function clientEnterGame(roster){
   lastTick = now();
   lastFrameAt = 0;
   updateHud();
+  runCountdown(function(){ /* 等 play 狀態的 frame 到來才開始 */ });
 }
 function clientShowResults(payload){
   clearInterval(timer);
@@ -1044,6 +1108,8 @@ function clientShowResults(payload){
 function backToLobbyUI(){
   clearInterval(timer);
   resetWorld();
+  myConfirmed = false;
+  if(myPlayerRef) myPlayerRef.update({confirmed: 0});
   state = 'lobby';
   openLobbyUI();
 }
@@ -1560,15 +1626,19 @@ function renderMembers(){
   if(mode!=='multi'){ return; }
   var pids = Object.keys(roomPlayers);
   pids.sort(function(a,b){ return (roomPlayers[a].joined||0)-(roomPlayers[b].joined||0); });
+  var allConfirmed = pids.length >= 2 && pids.every(function(pid){
+    return roomPlayers[pid] && roomPlayers[pid].confirmed;
+  });
   pids.forEach(function(pid){
     var p = roomPlayers[pid];
     var row = document.createElement('div');
     row.className = 'member-row';
     var tag = '';
     if(pid===fb.pid) tag += '(你)';
-    if(roomPlayers[pid] && pid===hostPid()) tag += '(房主)';
+    if(pid===hostPid()) tag += '(房主)';
+    var checkmark = p.confirmed ? ' <span style="color:#7FE0A0;font-size:14px">✔</span>' : '';
     row.innerHTML = '<span class="dot" style="background:' + SKINS[p.skin||0].body + '"></span>' +
-                    '<span>' + escapeHtml(p.name||'玩家') + '</span>' +
+                    '<span>' + escapeHtml(p.name||'玩家') + checkmark + '</span>' +
                     (tag ? '<span class="you">' + tag + '</span>' : '');
     list.appendChild(row);
   });
@@ -1578,11 +1648,16 @@ function renderMembers(){
     w.textContent = '把包廂號碼分享給朋友加入…';
     list.appendChild(w);
   }
-  var canStart = isHost && pids.length >= 2;
+  /* 重新渲染角色格(更新鎖定狀態) */
+  buildSkinGrid();
+  var canStart = isHost && pids.length >= 2 && allConfirmed;
   $('bt-start').classList.toggle('hidden', mode==='multi' && !isHost);
   $('lobby-wait').classList.toggle('hidden', !(mode==='multi' && !isHost));
   $('bt-start').disabled = (mode==='multi' && !canStart);
-  $('bt-start').style.opacity = $('bt-start').disabled ? 0.5 : 1;
+  $('bt-start').style.opacity = $('bt-start').disabled ? 0.45 : 1;
+  if(isHost && !canStart && pids.length >= 2){
+    $('bt-start').title = '等待所有玩家確認角色';
+  }
 }
 var _hostPid = null;
 function hostPid(){
@@ -1590,12 +1665,29 @@ function hostPid(){
   return _hostPid;
 }
 
+var myConfirmed = false;
+
+function takenSkins(){
+  if(mode!=='multi') return [];
+  return Object.keys(roomPlayers)
+    .filter(function(pid){ return pid !== fb.pid; })
+    .map(function(pid){ return roomPlayers[pid].skin||0; });
+}
+
 function buildSkinGrid(){
   var grid = $('skin-grid');
   grid.innerHTML = '';
+  var taken = takenSkins();
   SKINS.forEach(function(sk, i){
+    var isLocked = taken.indexOf(i) >= 0;
+    var isSel = (i===selSkin);
+    var isConfirmed = isSel && myConfirmed;
+    var cls = 'skin';
+    if(isSel) cls += ' sel';
+    if(isLocked) cls += ' locked';
+    if(isConfirmed) cls += ' confirmed-badge';
     var div = document.createElement('div');
-    div.className = 'skin' + (i===selSkin?' sel':'');
+    div.className = cls;
     var cv = document.createElement('canvas');
     cv.width = 128; cv.height = 72;
     var c2 = cv.getContext('2d');
@@ -1613,13 +1705,61 @@ function buildSkinGrid(){
     var sp = document.createElement('span');
     sp.textContent = sk.name;
     div.appendChild(cv); div.appendChild(sp);
-    div.addEventListener('click', function(){
-      selSkin = i;
-      buildSkinGrid();
-      syncMyProfile();
-    });
+    if(!isLocked && !myConfirmed){
+      div.addEventListener('click', function(){
+        selSkin = i;
+        buildSkinGrid();
+        syncMyProfile();
+      });
+    }
     grid.appendChild(div);
   });
+  /* 更新確認按鈕狀態 */
+  var btnC = $('bt-confirm');
+  if(btnC){
+    if(myConfirmed){
+      btnC.textContent = '✔ 已確認角色';
+      btnC.classList.add('done');
+    } else {
+      btnC.textContent = '✔ 確認角色';
+      btnC.classList.remove('done');
+    }
+  }
+}
+
+/* ============ 倒數 3-2-1-GO ============ */
+function runCountdown(callback){
+  var overlay = $('cd-overlay');
+  var numEl = $('cd-num');
+  overlay.classList.add('show');
+  var count = 3;
+  numEl.className = 'countdown-num';
+  numEl.textContent = String(count);
+
+  function tick(){
+    /* 縮小+淡出動畫 */
+    numEl.classList.add('pop');
+    setTimeout(function(){
+      count--;
+      numEl.classList.remove('pop');
+      if(count > 0){
+        numEl.textContent = String(count);
+        setTimeout(tick, 700);
+      } else {
+        numEl.textContent = '';
+        var go = document.createElement('div');
+        go.className = 'countdown-go';
+        go.textContent = 'GO!';
+        overlay.appendChild(go);
+        setTimeout(function(){
+          overlay.classList.remove('show');
+          overlay.innerHTML = '<div class="countdown-num" id="cd-num">3</div>';
+          callback();
+        }, 600);
+      }
+    }, 150);
+  }
+  setTimeout(tick, 600);
 }
 
 /* ============ 開局(單人) ============ */
@@ -1643,11 +1783,14 @@ function startSingleGame(){
   }
   replenishFoods();
   $('wrap-bar').classList.remove('hidden');
+  /* 先顯示棋盤(蛇的起始位置)再倒數 */
   state = 'play';
   show(null);
   lastTick = now();
   updateHud();
-  restartTimer();
+  runCountdown(function(){
+    restartTimer();
+  });
 }
 
 function goHome(){
@@ -1667,10 +1810,12 @@ function goHome(){
 
 /* ============ UI 事件 ============ */
 function openLobbyUI(){
+  myConfirmed = false;
   $('lobby-code').textContent = roomCode;
   $('lobby-code').classList.remove('hidden');
   $('f-bots').classList.add('hidden');
   $('f-members').classList.remove('hidden');
+  $('f-confirm').classList.remove('hidden');
   $('lobby-title').textContent = '包廂大廳';
   state = 'lobby';
   buildSkinGrid();
@@ -1709,10 +1854,6 @@ $('bt-join').addEventListener('click', function(){
   if(!/^\d{6}$/.test(v)){ roomMsg('請輸入 6 位數字的包廂號碼'); return; }
   joinRoom(v);
 });
-$('global-name').addEventListener('input', function(){
-  $('global-name').classList.remove('err');
-  syncMyProfile();
-});
 $('bt-lobby-back').addEventListener('click', function(){
   if(mode==='multi'){
     leaveRoom();
@@ -1720,6 +1861,12 @@ $('bt-lobby-back').addEventListener('click', function(){
     $('wrap-bar').classList.add('hidden');
     show('sc-home');
   }
+});
+$('bt-confirm').addEventListener('click', function(){
+  if(myConfirmed) return;
+  myConfirmed = true;
+  syncMyProfile();
+  buildSkinGrid();
 });
 $('bt-start').addEventListener('click', function(){
   if(mode==='single') startSingleGame();
