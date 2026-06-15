@@ -374,10 +374,11 @@
     </div>
   </div>
 
-  <div class="screen hidden" id="sc-result" style="background:transparent;backdrop-filter:none;justify-content:flex-end;pointer-events:none;padding-bottom:16px">
-    <div class="row" style="pointer-events:auto">
-      <button class="btn ghost" id="bt-home2">回主選單</button>
-      <button class="btn" id="bt-again2">再玩一次</button>
+  <div class="screen hidden" id="sc-result" style="background:transparent;backdrop-filter:none;justify-content:flex-end;pointer-events:none;padding-bottom:20px">
+    <div class="row" style="pointer-events:auto;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button class="btn ghost" id="bt-back-lobby" style="font-size:14px;padding:8px 18px">回到包廂</button>
+      <button class="btn" id="bt-again2" style="font-size:14px;padding:8px 18px">再玩一局</button>
+      <button class="btn ghost" id="bt-home2" style="font-size:14px;padding:8px 18px">回到首頁</button>
     </div>
   </div>
 
@@ -669,9 +670,10 @@ function finishMulti(){
   }
 }
 function showResultScreen(){
-  $('bt-home2').textContent = mode==='multi' ? '離開包廂' : '回主選單';
-  $('bt-again2').classList.toggle('hidden', mode==='multi' && !isHost);
-  $('bt-again2').textContent = mode==='multi' ? '再來一局' : '再玩一次';
+  var isMulti = mode === 'multi';
+  /* 單人結果用 sc-over，多人用 sc-result */
+  if(!isMulti){ return; }
+  $('bt-back-lobby').classList.toggle('hidden', !isHost);
   show('sc-result');
 }
 function endSingle(){
@@ -1899,12 +1901,22 @@ $('bt-start').addEventListener('click', function(){
 $('bt-again').addEventListener('click', startSingleGame);
 $('bt-again2').addEventListener('click', function(){
   if(mode==='single'){ startSingleGame(); return; }
+  /* 再玩一局：房主重設狀態，非房主回大廳等候 */
   if(isHost && roomRef){
     roomRef.child('frame').remove();
     roomRef.child('results').remove();
     roomRef.child('state').set('lobby');
-    backToLobbyUI();
   }
+  backToLobbyUI();
+});
+$('bt-back-lobby').addEventListener('click', function(){
+  /* 回到包廂大廳（只有房主看得到此按鈕） */
+  if(isHost && roomRef){
+    roomRef.child('frame').remove();
+    roomRef.child('results').remove();
+    roomRef.child('state').set('lobby');
+  }
+  backToLobbyUI();
 });
 $('bt-home1').addEventListener('click', goHome);
 $('bt-home2').addEventListener('click', function(){
