@@ -438,13 +438,13 @@ var SHEET_URL = 'https://script.google.com/macros/s/AKfycbxL-wOFDOcokXxgyECVNBQW
    };
 */
 var FIREBASE_CONFIG = {
-  apiKey: "AIzaSyC8FeTHgNiHse2G1O9kH0Vyw4U47-TnI3w",
-  authDomain: "snake-game-b106c.firebaseapp.com",
-  databaseURL: "https://snake-game-b106c-default-rtdb.firebaseio.com",
-  projectId: "snake-game-b106c",
-  storageBucket: "snake-game-b106c.firebasestorage.app",
-  messagingSenderId: "693097107099",
-  appId: "1:693097107099:web:881cb6607c7f592fa7803e"
+  apiKey: "AIzaSyBiLwTED0IPPLlUsSvmWhLYM3ttC2m5tcM",
+  authDomain: "snake-game-sg.firebaseapp.com",
+  databaseURL: "https://snake-game-sg-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "snake-game-sg",
+  storageBucket: "snake-game-sg.firebasestorage.app",
+  messagingSenderId: "324562908116",
+  appId: "1:324562908116:web:8e9b5fc254e00cfd385c41"
 };
 
 var canvas = document.getElementById('game');
@@ -878,7 +878,7 @@ function moveSnake(s, nh){
 }
 
 function delay(){
-  if(mode==='multi') return isHost ? 130 : netDelay;
+  if(mode==='multi') return isHost ? 200 : netDelay;
   var speeds = [170, 130, 100];
   return speeds[Math.min(singleLevel-1, 2)];
 }
@@ -1004,60 +1004,97 @@ function onRemoteInput(snap){
   if(s && s.alive && s.queue.length<2) s.queue.push({x:v.x, y:v.y});
 }
 
-/* ============ 發布遊戲幀（房主→Firebase） ============ */
+/* ============ 發布遊戲幀（房主→Firebase，超輕量） ============ */
 function publishFrame(){
   if(!roomRef || !isHost) return;
   var t = now();
-  /* 只送差異最小的資料：每條蛇的頭部位置+方向+狀態，不送全身 */
+  /*
+    只傳每條蛇的「頭部座標 + 方向 + 長度 + 狀態旗標」
+    非房主自己用相同邏輯推算身體座標，完全不傳 cells array
+    食物和道具也壓縮成整數陣列
+  */
+  var sData = snakes.map(function(s){
+    var hx = s.alive && s.cells.length ? s.cells[0].x : -1;
+    var hy = s.alive && s.cells.length ? s.cells[0].y : -1;
+    return [
+      s.pidIdx,          /* 0: 玩家索引 */
+      hx, hy,            /* 1,2: 頭部座標 */
+      s.dir.x, s.dir.y, /* 3,4: 方向 */
+      s.alive ? len(s) : 0, /* 5: 長度(0=死) */
+      s.alive&&now()<s.invUntil?1:0,  /* 6: 無敵 */
+      s.alive&&now()<s.stunUntil?1:0, /* 7: 暈眩 */
+      now()<s.mouthUntil?1:0,         /* 8: 張嘴 */
+      s.face.type==='pain'?1:s.face.type==='soot'?2:s.face.type==='dizzy'?3:0 /* 9: 臉 */
+    ];
+  });
   var fr = {
     n: tickN,
-    s: snakes.map(function(s){
-      return {
-        p:s.pid, k:s.skinIdx,
-        /* 全身座標壓縮成 run-length 整數陣列 */
-        c: s.alive ? s.cells.map(function(c){ return c.y*COLS+c.x; }) : [],
-        d:[s.dir.x,s.dir.y], a:s.alive?1:0,
-        v:Math.max(0,Math.round(s.invUntil-t)),
-        st:Math.max(0,Math.round(s.stunUntil-t)),
-        m:Math.max(0,Math.round(s.mouthUntil-t)),
-        f:s.face.type, ln:s.alive?len(s):s.finalLen
-      };
-    }),
+    s: sData,
     fd: foods.map(function(f){ return f.y*COLS+f.x; }),
-    sp: special?{t:special.type,i:special.y*COLS+special.x,
-                 e:Math.max(0,Math.round(special.expireAt-t))}:null
+    sp: special?{t:special.type,i:special.y*COLS+special.x}:null
   };
   roomRef.child('frame').set(fr);
 }
 
-/* ============ 接收遊戲幀（非房主） ============ */
+/* ============ 接收遊戲幀（非房主，從頭部重建蛇身） ============ */
 function applyFrame(fr){
   var t = now();
-  netDelay = lastFrameAt ? Math.min(260, Math.max(80, t-lastFrameAt)) : 130;
+  netDelay = lastFrameAt ? Math.min(400, Math.max(100, t-lastFrameAt)) : 200;
   lastFrameAt = t; lastTick = t;
+
+  var faceTypes = ['normal','pain','soot','dizzy'];
+
   (fr.s||[]).forEach(function(d){
-    var s = snakeByPid(d.p);
-    if(!s){
-      s = makeSnake('玩家', d.k||0, SPAWNS[0], d.p);
-      snakes.push(s);
-      if(d.p===fb.pid) player = s;
-    }
+    /* d = [pidIdx, hx, hy, dx, dy, length, inv, stun, mouth, faceCode] */
+    var pidIdx = d[0];
+    var s = snakes[pidIdx];
+    if(!s) return;
+
     var wasAlive = s.alive;
+    var newAlive = d[5] > 0;
+    var hx = d[1], hy = d[2];
+    var dx = d[3], dy = d[4];
+    var newLen = d[5];
+
     s.prev = s.cells.length ? s.cells.map(cp) : [];
-    s.cells = (d.c||[]).map(function(i){ return {x:i%COLS, y:Math.floor(i/COLS)}; });
+    s.dir = {x:dx, y:dy};
+    s.alive = newAlive;
+    s.invUntil = d[6] ? t+5000 : 0;
+    s.stunUntil = d[7] ? t+2000 : 0;
+    s.mouthUntil = d[8] ? t+650 : 0;
+    var faceCode = d[9]||0;
+    s.face = {type: faceTypes[faceCode]||'normal', until: t+5000};
+    if(!newAlive){ s.finalLen = s.finalLen||newLen; }
+
+    if(newAlive && hx >= 0){
+      /* 從頭部往反方向推算身體格子 */
+      var newCells = [{x:hx, y:hy}];
+      /* 往前幾步的方向：保留現有 cells 做參考，只更新頭部 */
+      if(s.cells.length > 1){
+        /* 用舊身體接在新頭後面，截到正確長度 */
+        for(var ci=0;ci<s.cells.length && newCells.length<newLen;ci++){
+          var old = s.cells[ci];
+          if(old.x!==hx || old.y!==hy) newCells.push({x:old.x, y:old.y});
+        }
+      }
+      /* 如果長度不夠，往反方向延伸填補 */
+      while(newCells.length < newLen){
+        var last = newCells[newCells.length-1];
+        newCells.push({x:last.x - dx, y:last.y - dy});
+      }
+      newCells = newCells.slice(0, newLen);
+      s.cells = newCells;
+    }
+
     if(!s.prev.length) s.prev = s.cells.map(cp);
-    s.dir = {x:d.d?d.d[0]:1, y:d.d?d.d[1]:0};
-    s.alive = !!d.a;
-    s.invUntil = t+(d.v||0); s.stunUntil = t+(d.st||0); s.mouthUntil = t+(d.m||0);
-    s.face = {type:d.f||'normal', until:t+5000};
-    s.finalLen = d.ln||s.finalLen;
     s.movedThisTick = true;
-    if(s===player && wasAlive && !s.alive && state==='play') show('sc-dead');
-    if(wasAlive && !s.alive) deathFx({cells:s.prev, skin:s.skin});
+    if(s===player && wasAlive && !newAlive && state==='play') show('sc-dead');
+    if(wasAlive && !newAlive) deathFx({cells:s.prev, skin:s.skin});
   });
+
   foods = (fr.fd||[]).map(function(i){ return {x:i%COLS, y:Math.floor(i/COLS)}; });
-  special = fr.sp?{type:fr.sp.t,x:fr.sp.i%COLS,y:Math.floor(fr.sp.i/COLS),
-                   expireAt:t+(fr.sp.e||0)}:null;
+  special = fr.sp ? {type:fr.sp.t, x:fr.sp.i%COLS, y:Math.floor(fr.sp.i/COLS),
+                     expireAt: t+9000} : null;
   updateHud();
 }
 
@@ -1075,9 +1112,10 @@ function hostStartGame(){
     if(usedSkins.indexOf(sk)>=0){ for(var x=0;x<8;x++) if(usedSkins.indexOf(x)<0){ sk=x; break; } }
     usedSkins.push(sk);
     var s = makeSnake(pdata.name||'玩家', sk, SPAWNS[spawnIdx[i]], pid);
+    s.pidIdx = i; /* 用於輕量幀的索引 */
     snakes.push(s);
     if(pid===fb.pid) player = s;
-    roster.push({p:pid, nm:s.name, k:sk});
+    roster.push({p:pid, nm:s.name, k:sk, i:i});
   });
   wrap = false; $('wrap-toggle').checked = false; $('wrap-bar').classList.add('hidden');
   replenishFoods();
@@ -1096,6 +1134,7 @@ function clientEnterGame(roster){
   resetWorld();
   roster.forEach(function(r, i){
     var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[i%SPAWNS.length], r.p);
+    s.pidIdx = r.i !== undefined ? r.i : i;
     snakes.push(s);
     if(r.p===fb.pid) player = s;
   });
