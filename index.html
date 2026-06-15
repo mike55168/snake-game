@@ -982,9 +982,8 @@ function attachRoomListeners(){
   listen(roomRef.child('state'), 'value', function(snap){
     var st = snap.val();
     if(st==='countdown' && !isHost && state!=='play'){
-      roomRef.child('roster').once('value').then(function(rs){
-        clientEnterGame(rs.val() || []);
-      });
+      /* 非房主等 Ably start 訊號，這裡只做準備 */
+      clientEnterGame();
     } else if(st==='done' && !isHost && state==='play'){
       roomRef.child('results').once('value').then(function(rs){
         var payload = rs.val() || [];
@@ -1042,20 +1041,11 @@ function ablyConnect(onReady){
 }
 function ablyJoinChannel(code, onJoined){
   ablyChannel = ablyClient.channels.get('room-' + code);
-  ablyChannel.attach(function(err){
-    if(err){ roomMsg('頻道加入失敗: ' + err.message); return; }
-    onJoined();
-  });
+  onJoined(); /* v2 不需要 attach，直接可用 */
 }
 function ablySubscribe(){
   if(!ablyChannel) return;
-  /* 非房主訂閱 frame */
-  if(!isHost){
-    ablyChannel.subscribe('frame', function(msg){
-      if(state==='play') applyFrame(msg.data);
-    });
-  }
-  /* 房主訂閱玩家輸入（備援，主要靠 Firebase inputs） */
+  /* 房主訂閱玩家輸入 */
   if(isHost){
     ablyChannel.subscribe('input', function(msg){
       var d = msg.data;
@@ -1064,6 +1054,35 @@ function ablySubscribe(){
       if(s && s.alive && s.queue.length<2) s.queue.push({x:d.x, y:d.y});
     });
   }
+  /* 非房主訂閱 start */
+  if(!isHost) ablySubscribeStart();
+}
+
+function ablySubscribeStart(){
+  if(!ablyChannel || isHost) return;
+  /* 先取消舊的再重新訂閱，避免重複 */
+  ablyChannel.unsubscribe('start');
+  ablyChannel.unsubscribe('frame');
+  ablyChannel.subscribe('start', function startHandler(msg){
+    ablyChannel.unsubscribe('start', startHandler);
+    var d = msg.data;
+    var roster = d.roster || [];
+    var initFr = d.fr;
+    resetWorld();
+    roster.forEach(function(r, i){
+      var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[i%SPAWNS.length], r.p);
+      s.pidIdx = r.i !== undefined ? r.i : i;
+      snakes.push(s);
+      if(r.p===fb.pid) player = s;
+    });
+    wrap = false; $('wrap-bar').classList.add('hidden');
+    if(initFr) applyFrame(initFr);
+    ablyChannel.subscribe('frame', function(msg2){
+      if(state==='play') applyFrame(msg2.data);
+    });
+    state = 'play'; show(null); lastTick = now(); lastFrameAt = 0; updateHud();
+    runCountdown(function(){});
+  });
 }
 function ablyCleanup(){
   if(ablyChannel){ try{ ablyChannel.detach(); ablyChannel=null; }catch(e){} }
@@ -1133,10 +1152,8 @@ function snakeByPid(pid){
   return null;
 }
 
-/* ============ 發布遊戲幀（Ably WebSocket，超低延遲） ============ */
-function publishFrame(){
-  if(!ablyChannel || !isHost) return;
-  var fr = {
+function buildFrame(){
+  return {
     n: tickN,
     s: snakes.map(function(s){
       return {
@@ -1154,7 +1171,11 @@ function publishFrame(){
     fd: foods.map(function(f){ return f.y*COLS+f.x; }),
     sp: special ? {t:special.type, i:special.y*COLS+special.x} : null
   };
-  ablyChannel.publish('frame', fr);
+}
+/* ============ 發布遊戲幀（Ably） ============ */
+function publishFrame(){
+  if(!ablyChannel || !isHost) return;
+  ablyChannel.publish('frame', buildFrame());
 }
 
 /* ============ 接收遊戲幀（非房主） ============ */
@@ -1214,32 +1235,48 @@ function hostStartGame(){
   });
   wrap = false; $('wrap-toggle').checked = false; $('wrap-bar').classList.add('hidden');
   replenishFoods();
-  /* 寫 roster 到 Firebase，讓非房主取得玩家清單 */
-  roomRef.child('roster').set(roster).then(function(){
-    roomRef.child('inputs').remove();
-    /* 透過 Ably 推送初始幀 */
-    publishFrame();
-    /* 300ms 後廣播倒數（確保初始幀先到） */
-    setTimeout(function(){
-      roomRef.child('state').set('countdown');
-    }, 300);
-  }).catch(function(e){ roomMsg('寫入失敗: ' + e.message); });
+  /* 把 roster + 初始幀一起用 Ably 送給所有玩家 */
+  var initMsg = {
+    roster: roster,
+    fr: buildFrame()
+  };
+  ablyChannel.publish('start', initMsg);
+  /* Firebase 只備份 roster（不靠它觸發開始） */
+  roomRef.child('roster').set(roster);
+  roomRef.child('inputs').remove();
   state = 'play'; show(null); lastTick = now(); tickN = 0; updateHud();
-  runCountdown(function(){ restartTimer(); });
+  runCountdown(function(){
+    restartTimer();
+  });
 }
 
 /* ============ 進入遊戲（非房主） ============ */
-function clientEnterGame(roster){
+function clientEnterGame(){
+  /* 清空世界，等 Ably start 訊號才建立蛇 */
   resetWorld();
-  roster.forEach(function(r, i){
-    var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[i%SPAWNS.length], r.p);
-    s.pidIdx = r.i !== undefined ? r.i : i;
-    snakes.push(s);
-    if(r.p===fb.pid) player = s;
+  /* 訂閱 Ably start 訊號，收到才開始倒數 */
+  ablyChannel.subscribe('start', function startHandler(msg){
+    ablyChannel.unsubscribe('start', startHandler);
+    var d = msg.data;
+    var roster = d.roster || [];
+    var initFr = d.fr;
+    /* 建立蛇 */
+    roster.forEach(function(r, i){
+      var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[i%SPAWNS.length], r.p);
+      s.pidIdx = r.i !== undefined ? r.i : i;
+      snakes.push(s);
+      if(r.p===fb.pid) player = s;
+    });
+    wrap = false; $('wrap-bar').classList.add('hidden');
+    /* 套用初始幀（蛇位置、食物、道具全部同步） */
+    if(initFr) applyFrame(initFr);
+    /* 訂閱後續幀 */
+    ablyChannel.subscribe('frame', function(msg2){
+      if(state==='play') applyFrame(msg2.data);
+    });
+    state = 'play'; show(null); lastTick = now(); lastFrameAt = 0; updateHud();
+    runCountdown(function(){});
   });
-  wrap = false; $('wrap-bar').classList.add('hidden');
-  state = 'play'; show(null); lastTick = now(); lastFrameAt = 0; updateHud();
-  runCountdown(function(){});
 }
 
 /* ============ 結果（非房主） ============ */
@@ -1260,6 +1297,8 @@ function backToLobbyUI(){
   myConfirmed = false;
   if(myPlayerRef) myPlayerRef.update({confirmed: 0});
   state = 'lobby';
+  /* 非房主重新訂閱 start，準備迎接下一局 */
+  if(!isHost) ablySubscribeStart();
   openLobbyUI();
 }
 function cleanupRoom(){
