@@ -22,20 +22,22 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{overscroll-behavior:none}
   body{
-    min-height:100vh;
+    min-height:100svh;
     background:radial-gradient(1200px 700px at 50% -10%, #1A3023 0%, var(--page) 60%);
     color:var(--text);
     font-family:'Noto Sans TC',system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-    padding:12px 14px 20px;gap:10px;
+    display:flex;flex-direction:column;align-items:center;
+    /* 讓整個佈局剛好塞進視窗，不超出、不需滾動 */
+    height:100svh;
+    padding:6px 12px 6px;gap:5px;
+    overflow:hidden;
   }
-  header{text-align:center;padding-top:4px}
+  header{text-align:center;flex-shrink:0}
   header h1{
     font-family:'Fredoka','Noto Sans TC',sans-serif;
-    font-weight:600;font-size:clamp(20px,4.5vw,32px);letter-spacing:.04em;
+    font-weight:600;font-size:clamp(17px,4vw,28px);letter-spacing:.04em;
   }
   header h1 .en{color:var(--accent)}
-  header p{font-size:12px;color:var(--text-dim);margin-top:4px;letter-spacing:.06em}
 
   /* 主選單道具說明 — 貼齊頂部 */
   .home-legend{
@@ -52,26 +54,49 @@
     display:flex;flex-direction:column;align-items:center;gap:12px;
   }
 
-  .stats{display:flex;gap:8px;width:min(94vw,560px)}
-  .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;padding:7px 8px;text-align:center}
-  .chip .k{font-size:10px;color:var(--text-dim);letter-spacing:.12em;margin-bottom:1px}
-  .chip .v{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:19px;font-variant-numeric:tabular-nums}
+  .stats{display:flex;gap:6px;width:min(96vw,560px);flex-shrink:0}
+  .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:10px;padding:5px 6px;text-align:center}
+  .chip .k{font-size:10px;color:var(--text-dim);letter-spacing:.1em;margin-bottom:1px}
+  .chip .v{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
   .chip .v.gold{color:var(--accent)}
 
   /* 穿牆模式在棋盤上方(單人) */
   .wrap-bar{
-    width:min(94vw,560px);display:flex;align-items:center;gap:8px;
-    font-size:12px;color:var(--text-dim);
+    width:min(96vw,560px);display:flex;align-items:center;gap:8px;
+    font-size:12px;color:var(--text-dim);flex-shrink:0;
   }
   .wrap-bar input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
   .wrap-bar label{cursor:pointer;user-select:none}
 
-  .board-wrap{
-    position:relative;width:min(94vw,560px);border-radius:22px;padding:8px;
-    background:linear-gradient(180deg,#4C7A36,#3B6129);
-    box-shadow:0 14px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.14);
+  .stats{display:flex;gap:6px;width:min(96vw,560px);flex-shrink:0}
+  .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:10px;padding:5px 6px;text-align:center}
+  .chip .k{font-size:10px;color:var(--text-dim);letter-spacing:.1em;margin-bottom:1px}
+  .chip .v{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
+  .chip .v.gold{color:var(--accent)}
+
+  .wrap-bar{
+    width:min(96vw,560px);display:flex;align-items:center;gap:8px;
+    font-size:12px;color:var(--text-dim);flex-shrink:0;
   }
-  canvas#game{display:block;width:100%;border-radius:12px;touch-action:none;user-select:none}
+  .wrap-bar input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+  .wrap-bar label{cursor:pointer;user-select:none}
+
+  /* 棋盤區：寬度撐滿，高度靠 flex:1 填滿剩餘空間，但最多不超過寬度的 1.2 倍（長方形） */
+  .board-wrap{
+    position:relative;
+    width:min(96vw,560px);
+    flex:1;
+    min-height:0;
+    max-height:calc(min(96vw,560px) * 1.25);
+    border-radius:18px;padding:7px;
+    background:linear-gradient(180deg,#4C7A36,#3B6129);
+    box-shadow:0 10px 28px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  canvas#game{
+    display:block;
+    width:100%;height:100%;
+    border-radius:10px;touch-action:none;user-select:none;
+  }
 
   .screen{
     position:absolute;inset:8px;border-radius:12px;
@@ -177,7 +202,7 @@
   /* ===== 新版方向鍵:仿實體按鍵 ===== */
   .controls{
     display:flex;align-items:center;justify-content:center;gap:20px;
-    width:min(94vw,560px);
+    width:min(96vw,560px);flex-shrink:0;
   }
   .dpad{
     display:grid;
@@ -260,7 +285,7 @@
 </div>
 
 <div class="board-wrap">
-  <canvas id="game" width="840" height="840" aria-label="貪食蛇遊戲畫面" role="img"></canvas>
+  <canvas id="game" width="840" height="1050" aria-label="貪食蛇遊戲畫面" role="img"></canvas>
 
   <div class="screen" id="sc-home">
     <!-- 道具說明固定在最上方 -->
@@ -276,6 +301,7 @@
       <div class="field">
         <label>玩家名稱（必填）</label>
         <input id="global-name" maxlength="8" placeholder="輸入你的名字" autocomplete="off">
+        <span id="switch-player" style="font-size:11px;color:var(--text-dim);cursor:pointer;text-decoration:underline;margin-top:2px">更換玩家</span>
       </div>
       <button class="btn wide" id="bt-single">單人模式</button>
       <button class="btn wide ghost" id="bt-multi">多人模式</button>
@@ -422,8 +448,9 @@ var FIREBASE_CONFIG = {
 
 var canvas = document.getElementById('game');
 var ctx = canvas.getContext('2d');
-var GRID = 28;
-var CELL = canvas.width / GRID;
+var COLS = 28, ROWS = 35;
+var GRID = COLS; /* 向後相容 */
+var CELL = canvas.width / COLS;
 var MIN_LEN = 2;
 
 var SKINS = [
@@ -438,10 +465,10 @@ var SKINS = [
 ];
 
 var SPAWNS = [
-  {h:{x:8,y:4},   d:{x:1,y:0}},  {h:{x:19,y:23}, d:{x:-1,y:0}},
-  {h:{x:23,y:8},  d:{x:0,y:1}},  {h:{x:4,y:19},  d:{x:0,y:-1}},
-  {h:{x:14,y:7},  d:{x:0,y:1}},  {h:{x:13,y:20}, d:{x:0,y:-1}},
-  {h:{x:7,y:14},  d:{x:1,y:0}},  {h:{x:20,y:13}, d:{x:-1,y:0}}
+  {h:{x:8, y:5},   d:{x:1, y:0}},  {h:{x:19,y:29}, d:{x:-1,y:0}},
+  {h:{x:23,y:9},   d:{x:0, y:1}},  {h:{x:4, y:25}, d:{x:0, y:-1}},
+  {h:{x:14,y:7},   d:{x:0, y:1}},  {h:{x:13,y:27}, d:{x:0, y:-1}},
+  {h:{x:6, y:17},  d:{x:1, y:0}},  {h:{x:21,y:17}, d:{x:-1,y:0}}
 ];
 
 var C = {
@@ -521,7 +548,7 @@ function occupied(x,y){
 }
 function randFree(){
   for(var t=0;t<300;t++){
-    var x = Math.floor(Math.random()*GRID), y = Math.floor(Math.random()*GRID);
+    var x = Math.floor(Math.random()*COLS), y = Math.floor(Math.random()*ROWS);
     if(!occupied(x,y)) return {x:x,y:y};
   }
   return null;
@@ -701,8 +728,8 @@ function aiThink(s){
     var d = dirs[i];
     var nx = s.cells[0].x + d.x, ny = s.cells[0].y + d.y;
     var sc = (i===0?0.4:0) + Math.random()*0.3;
-    if(wrap || inv(s)){ nx=(nx+GRID)%GRID; ny=(ny+GRID)%GRID; }
-    else if(nx<0||nx>=GRID||ny<0||ny>=GRID){ sc -= 1000; }
+    if(wrap || inv(s)){ nx=(nx+COLS)%COLS; ny=(ny+ROWS)%ROWS; }
+    else if(nx<0||nx>=COLS||ny<0||ny>=ROWS){ sc -= 1000; }
     if(sc > -500 && !inv(s)){
       var o = cellOwner(nx,ny,null);
       if(o){
@@ -752,8 +779,8 @@ function tick(){
   movers.forEach(function(s){
     var nh = {x:s.cells[0].x+s.dir.x, y:s.cells[0].y+s.dir.y};
     var wall = false;
-    if(wrap || inv(s)){ nh.x=(nh.x+GRID)%GRID; nh.y=(nh.y+GRID)%GRID; }
-    else if(nh.x<0||nh.x>=GRID||nh.y<0||nh.y>=GRID){ wall = true; }
+    if(wrap || inv(s)){ nh.x=(nh.x+COLS)%COLS; nh.y=(nh.y+ROWS)%ROWS; }
+    else if(nh.x<0||nh.x>=COLS||nh.y<0||nh.y>=ROWS){ wall = true; }
     plans.push({s:s, nh:nh, wall:wall, skip:false});
   });
 
@@ -844,7 +871,7 @@ function moveSnake(s, nh){
   }
   if(special && special.x===nh.x && special.y===nh.y) applySpecial(s);
   if(s.grow>0){ s.grow--; } else { s.cells.pop(); }
-  if(mode==='single' && s===player && len(s)===GRID*GRID) winSingle();
+  if(mode==='single' && s===player && len(s)===COLS*ROWS) winSingle();
 }
 
 function delay(){
@@ -915,12 +942,9 @@ function requireName(){
     return false;
   }
   inp.style.borderColor = '';
+  try { localStorage.setItem('snake-name', n); } catch(e){}
   return true;
 }
-$('global-name').addEventListener('input', function(){
-  this.style.borderColor = '';
-  syncMyProfile();
-});
 function syncMyProfile(){
   if(mode==='multi' && myPlayerRef){
     myPlayerRef.update({name: myName()||'玩家', skin: selSkin, confirmed: myConfirmed ? 1 : 0});
@@ -1139,7 +1163,7 @@ function leaveRoom(){
 
 /* ============ 繪圖 ============ */
 function drawBoard(){
-  for(var x=0;x<GRID;x++) for(var y=0;y<GRID;y++){
+  for(var x=0;x<COLS;x++) for(var y=0;y<ROWS;y++){
     ctx.fillStyle = (x+y)%2===0 ? C.grassA : C.grassB;
     ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
   }
@@ -1971,6 +1995,26 @@ window.addEventListener('beforeunload', function(){
 });
 
 /* ============ 啟動 ============ */
+/* 讀取上次名字 */
+(function(){
+  try {
+    var saved = localStorage.getItem('snake-name');
+    if(saved) $('global-name').value = saved;
+  } catch(e){}
+})();
+$('global-name').addEventListener('input', function(){
+  this.style.borderColor = '';
+  syncMyProfile();
+  try { if(this.value.trim()) localStorage.setItem('snake-name', this.value.trim()); } catch(e){}
+});
+$('switch-player').addEventListener('click', function(){
+  var inp = $('global-name');
+  inp.value = '';
+  inp.style.borderColor = '';
+  inp.focus();
+  try { localStorage.removeItem('snake-name'); } catch(e){}
+});
+
 buildSkinGrid();
 show('sc-home');
 updateHud();
