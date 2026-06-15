@@ -926,8 +926,7 @@ function peerInit(onReady){
   peer.on('connection', function(conn){
     conn.on('open', function(){
       clientConns.push(conn);
-      conn.on('data', function(raw){
-        var data = typeof raw==='string' ? JSON.parse(raw) : raw;
+      conn.on('data', function(data){
         if(data.type==='dir'){
           var s = snakeByPid(data.pid);
           if(s && s.alive && s.queue.length<2) s.queue.push({x:data.x, y:data.y});
@@ -940,14 +939,12 @@ function peerInit(onReady){
   });
 }
 function peerSendToAll(data){
-  var str = JSON.stringify(data);
-  clientConns.forEach(function(c){ try{ if(c.open) c.send(str); }catch(e){} });
+  clientConns.forEach(function(c){ try{ if(c.open) c.send(data); }catch(e){} });
 }
 function peerConnectToHost(peerId, onOpen){
-  hostConn = peer.connect(peerId, {reliable:false, serialization:'none'});
+  hostConn = peer.connect(peerId, {reliable:true, serialization:'json'});
   hostConn.on('open', function(){ onOpen(); });
-  hostConn.on('data', function(raw){
-    var data = typeof raw==='string' ? JSON.parse(raw) : raw;
+  hostConn.on('data', function(data){
     if(data.type==='frame' && state==='play') applyFrame(data);
     else if(data.type==='results') clientShowResults(data.ranked);
     else if(data.type==='lobby') backToLobbyUI();
@@ -1137,10 +1134,16 @@ function clientEnterGame(roster){
   wrap = false; $('wrap-bar').classList.add('hidden');
   state = 'play'; show(null); lastTick = now(); lastFrameAt = 0; updateHud();
   if(_hostPeerId){
+    roomMsg('');
     peerConnectToHost(_hostPeerId, function(){
-      runCountdown(function(){});
+      /* 連線成功後才開始倒數 */
+      runCountdown(function(){
+        /* 倒數完畢，等待房主 frame 推送即可，不需要自己 tick */
+      });
     });
-  } else { runCountdown(function(){}); }
+  } else {
+    runCountdown(function(){});
+  }
 }
 
 /* ============ 結果（非房主接收） ============ */
@@ -1983,9 +1986,8 @@ function pushDir(name){
   var d = map[name];
   if(!d) return;
   if(mode==='multi' && !isHost){
-    /* 透過 PeerJS 直接傳給房主 */
     if(hostConn && hostConn.open){
-      try{ hostConn.send(JSON.stringify({type:'dir', pid:fb.pid, x:d.x, y:d.y})); }catch(e){}
+      try{ hostConn.send({type:'dir', pid:fb.pid, x:d.x, y:d.y}); }catch(e){}
     }
   } else {
     if(player.queue.length<2) player.queue.push(d);
