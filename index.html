@@ -20,108 +20,184 @@
     --accent:#F2C14E;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{overscroll-behavior:none}
   body{
     min-height:100vh;
     background:radial-gradient(1200px 700px at 50% -10%, #1A3023 0%, var(--page) 60%);
     color:var(--text);
     font-family:'Noto Sans TC',system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:24px 14px;gap:16px;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    padding:12px 14px 20px;gap:10px;
   }
-  header{text-align:center}
+  header{text-align:center;padding-top:4px}
   header h1{
     font-family:'Fredoka','Noto Sans TC',sans-serif;
-    font-weight:600;font-size:clamp(24px,5vw,34px);letter-spacing:.04em;
+    font-weight:600;font-size:clamp(20px,4.5vw,32px);letter-spacing:.04em;
   }
   header h1 .en{color:var(--accent)}
-  header p{font-size:13px;color:var(--text-dim);margin-top:6px;letter-spacing:.06em}
+  header p{font-size:12px;color:var(--text-dim);margin-top:4px;letter-spacing:.06em}
 
-  .stats{display:flex;gap:10px;width:min(94vw,560px)}
-  .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:9px 12px;text-align:center}
-  .chip .k{font-size:11px;color:var(--text-dim);letter-spacing:.15em;margin-bottom:2px}
-  .chip .v{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:21px;font-variant-numeric:tabular-nums}
+  /* 名字欄位在 header 下方 */
+  .name-bar{
+    display:flex;align-items:center;gap:8px;
+    width:min(94vw,560px);
+  }
+  .name-bar label{font-size:12px;color:var(--text-dim);white-space:nowrap;letter-spacing:.08em}
+  .name-bar input{
+    flex:1;font-family:'Fredoka','Noto Sans TC',sans-serif;font-size:16px;
+    background:#0E1A12;color:var(--text);border:1.5px solid var(--panel-edge);
+    border-radius:10px;padding:7px 12px;outline:none;
+  }
+  .name-bar input:focus{border-color:var(--accent)}
+  .name-bar input.err{border-color:#F09595}
+
+  .stats{display:flex;gap:8px;width:min(94vw,560px)}
+  .chip{flex:1;background:var(--panel);border:1px solid var(--panel-edge);border-radius:12px;padding:7px 8px;text-align:center}
+  .chip .k{font-size:10px;color:var(--text-dim);letter-spacing:.12em;margin-bottom:1px}
+  .chip .v{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:19px;font-variant-numeric:tabular-nums}
   .chip .v.gold{color:var(--accent)}
 
-  .board-wrap{
-    position:relative;width:min(94vw,560px);border-radius:22px;padding:10px;
-    background:linear-gradient(180deg,#4C7A36,#3B6129);
-    box-shadow:0 18px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.14);
+  /* 穿牆模式在棋盤上方(單人) */
+  .wrap-bar{
+    width:min(94vw,560px);display:flex;align-items:center;gap:8px;
+    font-size:12px;color:var(--text-dim);
   }
-  canvas#game{display:block;width:100%;border-radius:14px;touch-action:none}
+  .wrap-bar input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+  .wrap-bar label{cursor:pointer;user-select:none}
+
+  .board-wrap{
+    position:relative;width:min(94vw,560px);border-radius:22px;padding:8px;
+    background:linear-gradient(180deg,#4C7A36,#3B6129);
+    box-shadow:0 14px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  canvas#game{display:block;width:100%;border-radius:12px;touch-action:none;user-select:none}
 
   .screen{
-    position:absolute;inset:10px;border-radius:14px;
-    background:rgba(14,26,16,.82);backdrop-filter:blur(4px);
+    position:absolute;inset:8px;border-radius:12px;
+    background:rgba(14,26,16,.88);backdrop-filter:blur(4px);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;text-align:center;padding:22px;overflow-y:auto;
+    gap:10px;text-align:center;padding:16px;overflow-y:auto;
   }
   .screen.hidden{display:none}
-  .screen .big{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:28px;text-shadow:0 2px 8px rgba(0,0,0,.4)}
-  .screen .small{font-size:13px;font-weight:500;color:#C9DCC0;line-height:1.7}
+  .screen .big{font-family:'Fredoka','Noto Sans TC',sans-serif;font-weight:600;font-size:clamp(20px,5vw,28px);text-shadow:0 2px 8px rgba(0,0,0,.4)}
+  .screen .small{font-size:12px;font-weight:500;color:#C9DCC0;line-height:1.6}
   .btn{
-    font-family:'Noto Sans TC',sans-serif;font-weight:700;font-size:16px;
-    padding:11px 32px;background:var(--accent);color:#3A2B07;border:none;border-radius:999px;
-    cursor:pointer;box-shadow:0 4px 0 #B98A23;transition:transform .08s ease;
+    font-family:'Noto Sans TC',sans-serif;font-weight:700;font-size:15px;
+    padding:9px 28px;background:var(--accent);color:#3A2B07;border:none;border-radius:999px;
+    cursor:pointer;box-shadow:0 3px 0 #B98A23;transition:transform .08s ease;
   }
-  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #B98A23}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #B98A23}
   .btn.ghost{background:transparent;color:var(--text);border:1.5px solid var(--panel-edge);box-shadow:none}
   .btn.ghost:active{transform:translateY(1px)}
-  .btn.wide{min-width:200px}
-  .field{display:flex;flex-direction:column;gap:6px;align-items:center}
-  .field label{font-size:12px;color:var(--text-dim);letter-spacing:.1em}
-  .field input, .field select{
-    font-family:'Fredoka','Noto Sans TC',sans-serif;font-size:17px;text-align:center;
+  .btn.wide{min-width:180px}
+  .field{display:flex;flex-direction:column;gap:5px;align-items:center}
+  .field label{font-size:11px;color:var(--text-dim);letter-spacing:.1em}
+  .field input,.field select{
+    font-family:'Fredoka','Noto Sans TC',sans-serif;font-size:16px;text-align:center;
     background:#0E1A12;color:var(--text);border:1.5px solid var(--panel-edge);
-    border-radius:10px;padding:8px 12px;width:180px;outline:none;
+    border-radius:10px;padding:7px 12px;width:170px;outline:none;
   }
-  .field input:focus, .field select:focus{border-color:var(--accent)}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+
+  /* 包廂號碼更緊湊 */
   .room-code{
-    font-family:'Fredoka',monospace;font-size:30px;font-weight:600;letter-spacing:.35em;
+    font-family:'Fredoka',monospace;font-size:22px;font-weight:600;letter-spacing:.3em;
     color:var(--accent);background:#0E1A12;border:1.5px dashed var(--panel-edge);
-    border-radius:12px;padding:8px 18px 8px 24px;
+    border-radius:10px;padding:5px 14px 5px 18px;
   }
-  .skin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+
+  .skin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;width:100%}
   .skin{
-    background:#0E1A12;border:2px solid var(--panel-edge);border-radius:12px;
-    padding:7px 6px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;
+    background:#0E1A12;border:2px solid var(--panel-edge);border-radius:10px;
+    padding:5px 4px 3px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;
   }
   .skin.sel{border-color:var(--accent);background:#1B2A14}
-  .skin canvas{width:64px;height:36px}
-  .skin span{font-size:11px;color:var(--text-dim)}
+  .skin canvas{width:100%;height:28px}
+  .skin span{font-size:10px;color:var(--text-dim)}
   .skin.sel span{color:var(--accent)}
+
   .member-list{
-    width:220px;background:#0E1A12;border:1.5px solid var(--panel-edge);
-    border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;
-    max-height:130px;overflow-y:auto;
+    width:200px;background:#0E1A12;border:1.5px solid var(--panel-edge);
+    border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;gap:5px;
+    max-height:100px;overflow-y:auto;
   }
-  .member-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
-  .member-row .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-  .member-row .you{color:var(--accent);font-size:11px}
+  .member-row{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text)}
+  .member-row .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .member-row .you{color:var(--accent);font-size:10px}
   .member-row.waiting{color:var(--text-dim);font-style:italic}
   .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 
   .legend{
     width:min(94vw,560px);background:var(--panel);border:1px solid var(--panel-edge);
-    border-radius:14px;padding:9px 12px;display:flex;flex-wrap:wrap;justify-content:center;
-    gap:5px 14px;font-size:12.5px;color:var(--text-dim);
+    border-radius:12px;padding:7px 10px;display:flex;flex-wrap:wrap;justify-content:center;
+    gap:4px 12px;font-size:11.5px;color:var(--text-dim);
   }
   .legend b{color:var(--text);font-weight:500}
 
-  .controls{display:flex;align-items:center;justify-content:center;gap:22px}
-  .dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px}
-  .dpad button{
-    background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;
-    color:var(--text);font-size:18px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.35);
+  /* ===== 新版方向鍵:仿實體按鍵 ===== */
+  .controls{
+    display:flex;align-items:center;justify-content:center;gap:20px;
+    width:min(94vw,560px);
   }
-  .dpad button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
-  .dpad .u{grid-area:1/2}.dpad .l{grid-area:2/1}.dpad .r{grid-area:2/3}.dpad .d{grid-area:3/2}
-  .dpad .c{grid-area:2/2;border-radius:50%;font-family:'Fredoka',sans-serif;font-size:13px;color:var(--accent)}
-  .side{display:flex;flex-direction:column;gap:10px;font-size:13px}
-  .toggle{display:flex;align-items:center;gap:8px;color:var(--text-dim);cursor:pointer;user-select:none}
-  .toggle input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
-  .hint{font-size:12px;color:var(--text-dim);text-align:center;max-width:480px;line-height:1.8}
-  kbd{font-family:'Fredoka',monospace;font-size:11px;background:var(--panel);border:1px solid var(--panel-edge);border-radius:5px;padding:1px 6px}
-  @media (hover:hover) and (pointer:fine){ .dpad{display:none} }
+  .dpad{
+    display:grid;
+    grid-template-columns:60px 60px 60px;
+    grid-template-rows:44px 44px 44px;
+    gap:4px;
+  }
+  /* 上下合為一個長形按鍵(上半/下半) */
+  .dpad-ud{
+    grid-area:1/2/3/3;
+    display:flex;flex-direction:column;gap:0;
+    border-radius:14px;overflow:hidden;
+    box-shadow:0 4px 0 rgba(0,0,0,.45);
+  }
+  .dpad-ud button{
+    flex:1;background:#2A3D2E;border:1px solid #3D5A40;
+    color:var(--text);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:0;
+  }
+  .dpad-ud button:first-child{border-bottom:1px solid #3D5A40;border-radius:14px 14px 0 0}
+  .dpad-ud button:last-child{border-radius:0 0 14px 14px}
+  .dpad-ud button:active{background:#1C2A1E}
+
+  /* 左右各一個正方形按鍵 */
+  .dpad-l,.dpad-r{
+    grid-row:2/3;
+    background:#2A3D2E;border:1px solid #3D5A40;
+    border-radius:14px;color:var(--text);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 0 rgba(0,0,0,.45);
+  }
+  .dpad-l{grid-column:1/2}
+  .dpad-r{grid-column:3/4}
+  .dpad-l:active,.dpad-r:active{background:#1C2A1E;transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.45)}
+
+  /* 方向鍵箭頭 SVG */
+  .arrow{width:18px;height:18px;fill:none;stroke:var(--text);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
+  /* 中央暫停鍵(單人) */
+  .pause-wrap{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  #pause-btn{
+    width:48px;height:48px;border-radius:50%;
+    background:#2A3D2E;border:1px solid #3D5A40;
+    color:var(--accent);font-family:'Fredoka',sans-serif;font-size:13px;
+    cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.4);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #pause-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  .pause-label{font-size:10px;color:var(--text-dim)}
+
+  .hint{font-size:11px;color:var(--text-dim);text-align:center;max-width:480px;line-height:1.7}
+  kbd{font-family:'Fredoka',monospace;font-size:10px;background:var(--panel);border:1px solid var(--panel-edge);border-radius:4px;padding:1px 5px}
+
+  /* 電腦隱藏方向鍵 */
+  @media (hover:hover) and (pointer:fine){
+    .dpad,.pause-wrap,.hint{display:none}
+  }
 </style>
 </head>
 <body>
@@ -131,11 +207,23 @@
   <p>單人闖關.多人包廂競賽</p>
 </header>
 
+<!-- 玩家名字(必填) -->
+<div class="name-bar">
+  <label for="global-name">玩家名稱</label>
+  <input id="global-name" maxlength="8" placeholder="輸入名字（必填）" autocomplete="off">
+</div>
+
 <div class="stats">
   <div class="chip"><div class="k" id="k1">分數</div><div class="v" id="v1">0</div></div>
   <div class="chip"><div class="k" id="k2">速度</div><div class="v" id="v2">1</div></div>
   <div class="chip"><div class="k" id="k3">最高分</div><div class="v gold" id="v3">0</div></div>
-  <div class="chip hidden" id="chip4"><div class="k" id="k4">目前領先</div><div class="v" id="v4" style="font-size:17px">-</div></div>
+  <div class="chip hidden" id="chip4"><div class="k" id="k4">目前領先</div><div class="v" id="v4" style="font-size:15px">-</div></div>
+</div>
+
+<!-- 穿牆模式(單人才顯示,在棋盤上方) -->
+<div class="wrap-bar hidden" id="wrap-bar">
+  <input type="checkbox" id="wrap-toggle">
+  <label for="wrap-toggle">穿牆模式</label>
 </div>
 
 <div class="board-wrap">
@@ -164,10 +252,6 @@
   <div class="screen hidden" id="sc-lobby">
     <div class="big" id="lobby-title">準備開始</div>
     <div class="room-code hidden" id="lobby-code">000000</div>
-    <div class="field">
-      <label>你的名字</label>
-      <input id="in-name" maxlength="8" placeholder="玩家">
-    </div>
     <div class="field">
       <label>選擇你的蛇</label>
       <div class="skin-grid" id="skin-grid"></div>
@@ -201,7 +285,7 @@
 
   <div class="screen hidden" id="sc-pause">
     <div class="big">暫停中</div>
-    <div class="small">按空白鍵或按鈕繼續</div>
+    <div class="small">點繼續或再次點暫停鍵恢復</div>
     <button class="btn" id="bt-resume">繼續</button>
   </div>
 
@@ -231,20 +315,35 @@
   <span>多人:<b>大蛇</b> 撞 <b>小蛇</b> 可截斷或吃掉</span>
 </div>
 
+<!-- 新版方向鍵 + 暫停 -->
 <div class="controls">
   <div class="dpad">
-    <button class="u" data-dir="up" aria-label="向上">▲</button>
-    <button class="l" data-dir="left" aria-label="向左">◀</button>
-    <button class="c" id="pause-btn" aria-label="暫停或繼續">II</button>
-    <button class="r" data-dir="right" aria-label="向右">▶</button>
-    <button class="d" data-dir="down" aria-label="向下">▼</button>
+    <!-- 上下合體長按鍵 -->
+    <div class="dpad-ud">
+      <button data-dir="up" aria-label="向上">
+        <svg class="arrow" viewBox="0 0 24 24"><polyline points="6 15 12 9 18 15"/></svg>
+      </button>
+      <button data-dir="down" aria-label="向下">
+        <svg class="arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <!-- 左 -->
+    <button class="dpad-l" data-dir="left" aria-label="向左">
+      <svg class="arrow" viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18"/></svg>
+    </button>
+    <!-- 右 -->
+    <button class="dpad-r" data-dir="right" aria-label="向右">
+      <svg class="arrow" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
   </div>
-  <div class="side" id="wrap-side">
-    <label class="toggle"><input type="checkbox" id="wrap-toggle"> 穿牆模式</label>
+  <!-- 暫停(單人才顯示) -->
+  <div class="pause-wrap" id="pause-wrap">
+    <button id="pause-btn" aria-label="暫停或繼續">II</button>
+    <span class="pause-label">暫停</span>
   </div>
 </div>
 
-<p class="hint">電腦:<kbd>←↑↓→</kbd> 或 <kbd>WASD</kbd> 移動,<kbd>SPACE</kbd> 暫停(限單人).手機:滑動棋盤或使用方向鍵.多人積分以蛇的長度計算</p>
+<p class="hint">電腦:<kbd>←↑↓→</kbd> 或 <kbd>WASD</kbd> 移動,<kbd>SPACE</kbd> 暫停(限單人)</p>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -253,7 +352,7 @@
 'use strict';
 
 /* ===== 設定 1:Google Apps Script 網址(記錄成績用,留空則不記錄) ===== */
-var SHEET_URL = '';
+var SHEET_URL = 'https://script.google.com/macros/s/AKfycbxL-wOFDOcokXxgyECVNBQWGrWpugXzV4EV1X5syf_KQbCQWTf6lReA3nYoHBZAmrgC/exec';
 
 /* ===== 設定 2:Firebase 設定(多人連線用)=====
    到 Firebase 控制台建立專案 → 新增網頁應用程式 → 複製 firebaseConfig 貼到下方。
@@ -524,10 +623,15 @@ function winSingle(){
 function sendToSheet(ranked){
   if(!SHEET_URL) return;
   try{
-    var rows = ranked.map(function(s,i){
-      return {time:new Date().toISOString(), mode:mode, room:roomCode||'-',
-              name:s.name, skin:s.skin.name,
-              length:s.alive?len(s):s.finalLen, rank:i+1};
+    var device = /Mobi|Android/i.test(navigator.userAgent) ? '手機' : '電腦';
+    var rows = ranked.map(function(s){
+      return {
+        time: new Date().toLocaleString('zh-TW'),
+        name: s.name,
+        length: s.alive ? len(s) : s.finalLen,
+        device: device,
+        mode: mode==='single' ? '單人' : '多人'
+      };
     });
     var body = new URLSearchParams();
     body.append('payload', JSON.stringify(rows));
@@ -748,9 +852,20 @@ function joinAsPlayer(){
   attachRoomListeners();
   openLobbyUI();
 }
-function myName(){ return ($('in-name').value.trim() || '玩家'); }
+function myName(){ return ($('global-name').value.trim() || ''); }
+function requireName(){
+  var n = myName();
+  if(!n){
+    $('global-name').classList.add('err');
+    $('global-name').focus();
+    $('global-name').placeholder = '請先輸入名字！';
+    return false;
+  }
+  $('global-name').classList.remove('err');
+  return true;
+}
 function syncMyProfile(){
-  if(mode==='multi' && myPlayerRef) myPlayerRef.update({name: myName(), skin: selSkin});
+  if(mode==='multi' && myPlayerRef) myPlayerRef.update({name: myName()||'玩家', skin: selSkin});
 }
 
 function attachRoomListeners(){
@@ -888,7 +1003,7 @@ function hostStartGame(){
   });
   wrap = false;
   $('wrap-toggle').checked = false;
-  $('wrap-side').classList.add('hidden');
+  $('wrap-bar').classList.add('hidden');
   replenishFoods();
   roomRef.child('inputs').remove();
   roomRef.child('results').remove();
@@ -910,7 +1025,7 @@ function clientEnterGame(roster){
     if(r.p===fb.pid) player = s;
   });
   wrap = false;
-  $('wrap-side').classList.add('hidden');
+  $('wrap-bar').classList.add('hidden');
   state = 'play';
   show(null);
   lastTick = now();
@@ -1514,7 +1629,7 @@ function startSingleGame(){
   var spawnIdx = [];
   for(var k=0;k<8;k++) spawnIdx.push(k);
   spawnIdx.sort(function(){ return Math.random()-0.5; });
-  player = makeSnake(myName(), selSkin, SPAWNS[spawnIdx[0]], null);
+  player = makeSnake(myName()||'玩家', selSkin, SPAWNS[spawnIdx[0]], null);
   snakes = [player];
   var bots = parseInt($('in-bots').value, 10) || 0;
   var order = [];
@@ -1527,6 +1642,7 @@ function startSingleGame(){
     snakes.push(s);
   }
   replenishFoods();
+  $('wrap-bar').classList.remove('hidden');
   state = 'play';
   show(null);
   lastTick = now();
@@ -1540,7 +1656,10 @@ function goHome(){
   resetWorld();
   roomCode = '';
   mode = 'single';
-  $('wrap-side').classList.remove('hidden');
+  $('wrap-bar').classList.add('hidden');
+  $('wrap-toggle').checked = false;
+  wrap = false;
+  $('pause-wrap').classList.remove('hidden');
   roomMsg('');
   show('sc-home');
   updateHud();
@@ -1560,12 +1679,14 @@ function openLobbyUI(){
 }
 
 $('bt-single').addEventListener('click', function(){
+  if(!requireName()) return;
   mode = 'single';
   $('lobby-code').classList.add('hidden');
   $('f-bots').classList.remove('hidden');
   $('f-members').classList.add('hidden');
   $('lobby-wait').classList.add('hidden');
-  $('wrap-side').classList.remove('hidden');
+  $('wrap-bar').classList.remove('hidden');
+  $('pause-wrap').classList.remove('hidden');
   $('bt-start').classList.remove('hidden');
   $('bt-start').disabled = false;
   $('bt-start').style.opacity = 1;
@@ -1574,7 +1695,10 @@ $('bt-single').addEventListener('click', function(){
   show('sc-lobby');
 });
 $('bt-multi').addEventListener('click', function(){
+  if(!requireName()) return;
   mode = 'multi';
+  $('wrap-bar').classList.add('hidden');
+  $('pause-wrap').classList.add('hidden');
   roomMsg(fbReady() ? '' : '提醒:此遊戲尚未設定 Firebase,多人模式無法連線');
   show('sc-room');
 });
@@ -1585,11 +1709,15 @@ $('bt-join').addEventListener('click', function(){
   if(!/^\d{6}$/.test(v)){ roomMsg('請輸入 6 位數字的包廂號碼'); return; }
   joinRoom(v);
 });
-$('in-name').addEventListener('input', function(){ syncMyProfile(); });
+$('global-name').addEventListener('input', function(){
+  $('global-name').classList.remove('err');
+  syncMyProfile();
+});
 $('bt-lobby-back').addEventListener('click', function(){
   if(mode==='multi'){
     leaveRoom();
   } else {
+    $('wrap-bar').classList.add('hidden');
     show('sc-home');
   }
 });
