@@ -1015,31 +1015,38 @@ var ablyClient = null;
 var ablyChannel = null;
 
 function ablyConnect(onReady){
-  if(ablyClient && ablyClient.connection.state === 'connected'){
-    onReady(); return;
-  }
   try{
-    ablyClient = new Ably.Realtime.Promise
-      ? new Ably.Realtime({key: ABLY_KEY, echoMessages: false})
-      : new Ably.Realtime(ABLY_KEY);
+    if(ablyClient){
+      try{ ablyClient.close(); }catch(e){}
+      ablyClient = null;
+    }
+    ablyClient = new Ably.Realtime({
+      key: ABLY_KEY,
+      echoMessages: false,
+      closeOnUnload: true
+    });
+    var done = false;
+    function finish(){
+      if(done) return;
+      done = true;
+      onReady();
+    }
+    /* v2 用 .on() */
+    ablyClient.connection.on(function(stateChange){
+      var st = stateChange.current || stateChange;
+      if(st === 'connected') finish();
+      if(st === 'failed' || st === 'suspended'){
+        roomMsg('Ably 連線失敗，請重試');
+      }
+    });
+    /* 若已經是 connected 狀態直接回調 */
+    if(ablyClient.connection.state === 'connected') finish();
+    setTimeout(function(){
+      if(!done){ roomMsg('Ably 連線逾時，請重試'); }
+    }, 12000);
   }catch(e){
-    ablyClient = new Ably.Realtime(ABLY_KEY);
+    roomMsg('Ably 初始化錯誤: ' + e.message);
   }
-  var done = false;
-  ablyClient.connection.on('connected', function(){
-    if(done) return; done = true;
-    onReady();
-  });
-  ablyClient.connection.on('failed', function(err){
-    roomMsg('Ably 連線失敗: ' + (err&&err.message||'未知錯誤'));
-  });
-  ablyClient.connection.on('suspended', function(){
-    roomMsg('Ably 連線中斷，請重試');
-  });
-  /* 10 秒 timeout */
-  setTimeout(function(){
-    if(!done){ roomMsg('Ably 連線逾時，請重試'); }
-  }, 10000);
 }
 function ablyJoinChannel(code, onJoined){
   ablyChannel = ablyClient.channels.get('room-' + code);
