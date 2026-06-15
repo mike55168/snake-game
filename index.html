@@ -418,6 +418,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -661,12 +662,14 @@ function finishMulti(){
   state = 'results';
   showResultScreen();
   sendToSheet(ranked);
-  if(isHost && roomRef){
+  if(isHost){
+    /* 透過 PeerJS 廣播結果給所有客戶端 */
     var payload = ranked.map(function(s){
-      return {nm:s.name, k:s.skinIdx, ln:s.finalLen, a:s.alive?1:0};
+      return {nm:s.name, k:s.skinIdx, ln:s.finalLen};
     });
-    roomRef.child('results').set(payload);
-    roomRef.child('state').set('done');
+    peerSendToAll({type:'results', ranked:payload});
+    /* Firebase 只更新大廳狀態 */
+    if(roomRef) roomRef.child('state').set('done');
   }
 }
 function showResultScreen(){
@@ -883,7 +886,7 @@ function delay(){
 }
 function restartTimer(){ clearInterval(timer); timer = setInterval(tick, delay()); }
 
-/* ============ Firebase 網路層 ============ */
+/* ============ Firebase 網路層（僅大廳用） ============ */
 function fbReady(){
   if(fb.db) return true;
   if(!FIREBASE_CONFIG || typeof firebase==='undefined') return false;
@@ -903,139 +906,174 @@ function detachAll(){
 }
 function roomMsg(t){ $('room-msg').textContent = t || ''; }
 
+/* ============ PeerJS P2P（遊戲同步用） ============ */
+var peer = null;
+var hostConn = null;
+var clientConns = [];
+var _hostPeerId = null;
+
+function peerInit(onReady){
+  if(peer && !peer.destroyed){ onReady(peer.id); return; }
+  peer = new Peer(undefined, {
+    host:'0.peerjs.com', port:443, path:'/', secure:true,
+    config:{iceServers:[
+      {urls:'stun:stun.l.google.com:19302'},
+      {urls:'stun:stun1.l.google.com:19302'}
+    ]}
+  });
+  peer.on('open', function(id){ onReady(id); });
+  peer.on('error', function(e){ roomMsg('連線錯誤:' + e.type); });
+  peer.on('connection', function(conn){
+    conn.on('open', function(){
+      clientConns.push(conn);
+      conn.on('data', function(raw){
+        var data = typeof raw==='string' ? JSON.parse(raw) : raw;
+        if(data.type==='dir'){
+          var s = snakeByPid(data.pid);
+          if(s && s.alive && s.queue.length<2) s.queue.push({x:data.x, y:data.y});
+        }
+      });
+      conn.on('close', function(){
+        clientConns = clientConns.filter(function(c){ return c!==conn; });
+      });
+    });
+  });
+}
+function peerSendToAll(data){
+  var str = JSON.stringify(data);
+  clientConns.forEach(function(c){ try{ if(c.open) c.send(str); }catch(e){} });
+}
+function peerConnectToHost(peerId, onOpen){
+  hostConn = peer.connect(peerId, {reliable:false, serialization:'none'});
+  hostConn.on('open', function(){ onOpen(); });
+  hostConn.on('data', function(raw){
+    var data = typeof raw==='string' ? JSON.parse(raw) : raw;
+    if(data.type==='frame' && state==='play') applyFrame(data);
+    else if(data.type==='results') clientShowResults(data.ranked);
+    else if(data.type==='lobby') backToLobbyUI();
+  });
+  hostConn.on('close', function(){
+    if(state==='play' || state==='lobby'){
+      cleanupRoom(); goHome();
+      roomMsg('房主已離線,包廂關閉'); show('sc-room');
+    }
+  });
+  hostConn.on('error', function(){});
+}
+function peerCleanup(){
+  clientConns.forEach(function(c){ try{ c.close(); }catch(e){} });
+  clientConns = [];
+  if(hostConn){ try{ hostConn.close(); }catch(e){}  hostConn = null; }
+  if(peer && !peer.destroyed){ try{ peer.destroy(); }catch(e){} peer = null; }
+}
+
+/* ============ 包廂建立 / 加入 ============ */
 function createRoom(){
-  if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式(見檔案開頭設定說明)'); return; }
-  roomMsg('');
-  roomCode = String(Math.floor(100000 + Math.random()*900000));
-  roomRef = fb.db.ref('rooms/' + roomCode);
-  isHost = true;
-  roomRef.set({host: fb.pid, state:'lobby', created: Date.now()}).then(function(){
-    roomRef.onDisconnect().remove();
-    joinAsPlayer();
-  }).catch(function(){ roomMsg('連線失敗,請檢查 Firebase 設定與網路'); });
+  if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式'); return; }
+  roomMsg('建立包廂中…');
+  peerInit(function(peerId){
+    roomCode = String(Math.floor(100000 + Math.random()*900000));
+    roomRef = fb.db.ref('rooms/' + roomCode);
+    isHost = true;
+    roomRef.set({
+      host: fb.pid, hostPeer: peerId,
+      state:'lobby', created: Date.now()
+    }).then(function(){
+      roomRef.onDisconnect().remove();
+      joinAsPlayer(); roomMsg('');
+    }).catch(function(){ roomMsg('連線失敗,請檢查 Firebase 設定'); });
+  });
 }
 function joinRoom(code){
-  if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式(見檔案開頭設定說明)'); return; }
-  roomMsg('');
+  if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式'); return; }
+  roomMsg('加入包廂中…');
   fb.db.ref('rooms/' + code).once('value').then(function(snap){
     var v = snap.val();
     if(!v){ roomMsg('找不到這個包廂號碼'); return; }
     if(v.state !== 'lobby'){ roomMsg('該包廂的遊戲已經開始'); return; }
-    roomCode = code;
-    roomRef = fb.db.ref('rooms/' + roomCode);
-    isHost = false;
-    joinAsPlayer();
+    roomCode = code; roomRef = fb.db.ref('rooms/' + roomCode);
+    isHost = false; _hostPeerId = v.hostPeer;
+    peerInit(function(){ joinAsPlayer(); roomMsg(''); });
   }).catch(function(){ roomMsg('連線失敗,請檢查網路'); });
 }
 function joinAsPlayer(){
   myPlayerRef = roomRef.child('players/' + fb.pid);
-  myPlayerRef.set({name: myName(), skin: selSkin, joined: Date.now()});
+  myPlayerRef.set({name: myName()||'玩家', skin: selSkin, joined: Date.now()});
   myPlayerRef.onDisconnect().remove();
   attachRoomListeners();
   openLobbyUI();
 }
 function myName(){ return ($('global-name').value.trim() || ''); }
 function requireName(){
-  var n = myName();
-  var inp = $('global-name');
+  var n = myName(), inp = $('global-name');
   if(!n){
-    inp.style.borderColor = '#F09595';
-    inp.focus();
-    inp.placeholder = '請先輸入名字！';
-    return false;
+    inp.style.borderColor = '#F09595'; inp.focus();
+    inp.placeholder = '請先輸入名字！'; return false;
   }
   inp.style.borderColor = '';
   try { localStorage.setItem('snake-name', n); } catch(e){}
   return true;
 }
 function syncMyProfile(){
-  if(mode==='multi' && myPlayerRef){
-    myPlayerRef.update({name: myName()||'玩家', skin: selSkin, confirmed: myConfirmed ? 1 : 0});
-  }
+  if(mode==='multi' && myPlayerRef)
+    myPlayerRef.update({name: myName()||'玩家', skin: selSkin, confirmed: myConfirmed?1:0});
 }
-
 function attachRoomListeners(){
-  listen(roomRef.child('host'), 'value', function(snap){
-    _hostPid = snap.val();
-    renderMembers();
-  });
+  listen(roomRef.child('host'), 'value', function(snap){ _hostPid = snap.val(); renderMembers(); });
   listen(roomRef.child('players'), 'value', function(snap){
     roomPlayers = snap.val() || {};
-    if(state==='home' || state==='lobby' || $('sc-lobby').classList.contains('hidden')===false){
-      renderMembers();
-    }
+    if(state==='lobby') renderMembers();
   });
   listen(roomRef.child('state'), 'value', function(snap){
     var st = snap.val();
-    if((st === 'play' || st === 'countdown') && state !== 'play'){
-      if(isHost) return;
+    if(st==='countdown' && state!=='play' && !isHost){
       roomRef.child('roster').once('value').then(function(rs){
         clientEnterGame(rs.val() || []);
       });
-    } else if(st === 'done' && state === 'play'){
-      roomRef.child('results').once('value').then(function(rs){
-        clientShowResults(rs.val() || []);
-      });
-    } else if(st === 'lobby' && (state==='results' || state==='play')){
+    } else if(st==='lobby' && (state==='results' || state==='play')){
       backToLobbyUI();
     }
   });
   listen(roomRef, 'value', function(snap){
     if(!snap.exists() && roomRef){
-      cleanupRoom();
-      goHome();
-      roomMsg('包廂已關閉(房主離開)');
-      show('sc-room');
+      cleanupRoom(); goHome();
+      roomMsg('包廂已關閉(房主離開)'); show('sc-room');
     }
   });
-  if(isHost){
-    listen(roomRef.child('inputs'), 'child_changed', onRemoteInput);
-    listen(roomRef.child('inputs'), 'child_added', onRemoteInput);
-  } else {
-    listen(roomRef.child('frame'), 'value', function(snap){
-      var fr = snap.val();
-      if(fr && state==='play') applyFrame(fr);
-    });
-  }
-}
-function onRemoteInput(snap){
-  var pid = snap.key, v = snap.val();
-  if(!v || pid===fb.pid) return;
-  var s = snakeByPid(pid);
-  if(s && s.alive && s.queue.length<2) s.queue.push({x:v.x, y:v.y});
 }
 function snakeByPid(pid){
   for(var i=0;i<snakes.length;i++) if(snakes[i].pid===pid) return snakes[i];
   return null;
 }
 
+/* ============ 發布遊戲幀（房主→PeerJS P2P） ============ */
 function publishFrame(){
-  if(!roomRef) return;
+  if(!clientConns.length) return;
   var t = now();
-  roomRef.child('frame').set({
-    n: tickN,
+  peerSendToAll({
+    type:'frame', n:tickN,
     s: snakes.map(function(s){
       return {
         p:s.pid, nm:s.name, k:s.skinIdx,
-        c: s.alive ? s.cells.map(function(c){ return c.y*GRID+c.x; }) : [],
-        d:[s.dir.x, s.dir.y], a:s.alive?1:0,
+        c: s.alive ? s.cells.map(function(c){ return c.y*COLS+c.x; }) : [],
+        d:[s.dir.x,s.dir.y], a:s.alive?1:0,
         v:Math.max(0,Math.round(s.invUntil-t)),
         st:Math.max(0,Math.round(s.stunUntil-t)),
         m:Math.max(0,Math.round(s.mouthUntil-t)),
-        f:s.face.type,
-        ln: s.alive?len(s):s.finalLen
+        f:s.face.type, ln:s.alive?len(s):s.finalLen
       };
     }),
-    fd: foods.map(function(f){ return f.y*GRID+f.x; }),
-    sp: special ? {t:special.type, i:special.y*GRID+special.x,
-                   e:Math.max(0,Math.round(special.expireAt-t))} : null
+    fd: foods.map(function(f){ return f.y*COLS+f.x; }),
+    sp: special?{t:special.type,i:special.y*COLS+special.x,
+                 e:Math.max(0,Math.round(special.expireAt-t))}:null
   });
 }
+
+/* ============ 接收遊戲幀（非房主） ============ */
 function applyFrame(fr){
   var t = now();
   netDelay = lastFrameAt ? Math.min(260, Math.max(80, t-lastFrameAt)) : 130;
-  lastFrameAt = t;
-  lastTick = t;
+  lastFrameAt = t; lastTick = t;
   (fr.s||[]).forEach(function(d){
     var s = snakeByPid(d.p);
     if(!s){
@@ -1045,93 +1083,76 @@ function applyFrame(fr){
     }
     var wasAlive = s.alive;
     s.prev = s.cells.length ? s.cells.map(cp) : [];
-    s.cells = (d.c||[]).map(function(i){ return {x:i%GRID, y:Math.floor(i/GRID)}; });
+    s.cells = (d.c||[]).map(function(i){ return {x:i%COLS, y:Math.floor(i/COLS)}; });
     if(!s.prev.length) s.prev = s.cells.map(cp);
     s.dir = {x:d.d?d.d[0]:1, y:d.d?d.d[1]:0};
     s.alive = !!d.a;
-    s.invUntil = t + (d.v||0);
-    s.stunUntil = t + (d.st||0);
-    s.mouthUntil = t + (d.m||0);
+    s.invUntil = t+(d.v||0); s.stunUntil = t+(d.st||0); s.mouthUntil = t+(d.m||0);
     s.face = {type:d.f||'normal', until:t+5000};
     s.finalLen = d.ln || s.finalLen;
     s.movedThisTick = true;
     if(s===player && wasAlive && !s.alive && state==='play') show('sc-dead');
     if(wasAlive && !s.alive) deathFx({cells:s.prev, skin:s.skin});
   });
-  foods = (fr.fd||[]).map(function(i){ return {x:i%GRID, y:Math.floor(i/GRID)}; });
-  special = fr.sp ? {type:fr.sp.t, x:fr.sp.i%GRID, y:Math.floor(fr.sp.i/GRID),
-                     expireAt:t+(fr.sp.e||0)} : null;
+  foods = (fr.fd||[]).map(function(i){ return {x:i%COLS, y:Math.floor(i/COLS)}; });
+  special = fr.sp?{type:fr.sp.t,x:fr.sp.i%COLS,y:Math.floor(fr.sp.i/COLS),
+                   expireAt:t+(fr.sp.e||0)}:null;
   updateHud();
 }
 
+/* ============ 開始遊戲（房主） ============ */
 function hostStartGame(){
   var pids = Object.keys(roomPlayers);
   if(pids.length < 2){ return; }
   pids.sort(function(a,b){ return (roomPlayers[a].joined||0)-(roomPlayers[b].joined||0); });
-  var spawnIdx = [];
-  for(var k=0;k<8;k++) spawnIdx.push(k);
+  var spawnIdx = []; for(var k=0;k<8;k++) spawnIdx.push(k);
   spawnIdx.sort(function(){ return Math.random()-0.5; });
-
   resetWorld();
-  var usedSkins = [];
-  var roster = [];
+  var usedSkins = [], roster = [];
   pids.slice(0,8).forEach(function(pid, i){
-    var pdata = roomPlayers[pid];
-    var sk = pdata.skin||0;
-    if(usedSkins.indexOf(sk) >= 0){
-      for(var x=0;x<8;x++) if(usedSkins.indexOf(x)<0){ sk = x; break; }
-    }
+    var pdata = roomPlayers[pid], sk = pdata.skin||0;
+    if(usedSkins.indexOf(sk)>=0){ for(var x=0;x<8;x++) if(usedSkins.indexOf(x)<0){ sk=x; break; } }
     usedSkins.push(sk);
     var s = makeSnake(pdata.name||'玩家', sk, SPAWNS[spawnIdx[i]], pid);
     snakes.push(s);
     if(pid===fb.pid) player = s;
     roster.push({p:pid, nm:s.name, k:sk});
   });
-  wrap = false;
-  $('wrap-toggle').checked = false;
-  $('wrap-bar').classList.add('hidden');
+  wrap = false; $('wrap-toggle').checked = false; $('wrap-bar').classList.add('hidden');
   replenishFoods();
-  roomRef.child('inputs').remove();
-  roomRef.child('results').remove();
   roomRef.child('roster').set(roster);
-  publishFrame();
-  /* 廣播倒數指令 */
   roomRef.child('state').set('countdown');
-  state = 'play';
-  show(null);
-  lastTick = now();
-  tickN = 0;
-  updateHud();
-  runCountdown(function(){
-    roomRef.child('state').set('play');
-    restartTimer();
-  });
+  state = 'play'; show(null); lastTick = now(); tickN = 0; updateHud();
+  runCountdown(function(){ restartTimer(); });
 }
+
+/* ============ 進入遊戲（非房主） ============ */
 function clientEnterGame(roster){
   resetWorld();
-  roster.forEach(function(r){
-    var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[0], r.p);
+  roster.forEach(function(r, i){
+    var s = makeSnake(r.nm||'玩家', r.k||0, SPAWNS[i%SPAWNS.length], r.p);
     snakes.push(s);
     if(r.p===fb.pid) player = s;
   });
-  wrap = false;
-  $('wrap-bar').classList.add('hidden');
-  state = 'play';
-  show(null);
-  lastTick = now();
-  lastFrameAt = 0;
-  updateHud();
-  runCountdown(function(){ /* 等 play 狀態的 frame 到來才開始 */ });
+  wrap = false; $('wrap-bar').classList.add('hidden');
+  state = 'play'; show(null); lastTick = now(); lastFrameAt = 0; updateHud();
+  if(_hostPeerId){
+    peerConnectToHost(_hostPeerId, function(){
+      runCountdown(function(){});
+    });
+  } else { runCountdown(function(){}); }
 }
-function clientShowResults(payload){
+
+/* ============ 結果（非房主接收） ============ */
+function clientShowResults(ranked){
   clearInterval(timer);
-  resultRanks = payload.map(function(d){
-    return {name:d.nm, skin:SKINS[d.k||0], skinIdx:d.k||0,
-            alive:false, finalLen:d.ln||0, cells:[]};
+  resultRanks = (ranked||[]).map(function(d){
+    return {name:d.nm, skin:SKINS[d.k||0], skinIdx:d.k||0, alive:false, finalLen:d.ln||0, cells:[]};
   });
   state = 'results';
   showResultScreen();
 }
+
 function backToLobbyUI(){
   clearInterval(timer);
   resetWorld();
@@ -1149,11 +1170,13 @@ function resetWorld(){
 function cleanupRoom(){
   detachAll();
   clearInterval(timer);
+  peerCleanup();
   if(myPlayerRef){ try{ myPlayerRef.onDisconnect().cancel(); }catch(e){} }
   if(roomRef && isHost){ try{ roomRef.onDisconnect().cancel(); }catch(e){} }
   roomRef = null; myPlayerRef = null;
   roomPlayers = {};
   isHost = false;
+  _hostPeerId = null;
 }
 function leaveRoom(){
   if(roomRef){
@@ -1902,8 +1925,8 @@ $('bt-start').addEventListener('click', function(){
 $('bt-again').addEventListener('click', startSingleGame);
 $('bt-again2').addEventListener('click', function(){
   if(mode==='single'){ startSingleGame(); return; }
-  /* 再玩一局：房主重設狀態，非房主回大廳等候 */
   if(isHost && roomRef){
+    peerSendToAll({type:'lobby'});
     roomRef.child('frame').remove();
     roomRef.child('results').remove();
     roomRef.child('state').set('lobby');
@@ -1911,8 +1934,8 @@ $('bt-again2').addEventListener('click', function(){
   backToLobbyUI();
 });
 $('bt-back-lobby').addEventListener('click', function(){
-  /* 回到包廂大廳（只有房主看得到此按鈕） */
   if(isHost && roomRef){
+    peerSendToAll({type:'lobby'});
     roomRef.child('frame').remove();
     roomRef.child('results').remove();
     roomRef.child('state').set('lobby');
@@ -1960,7 +1983,10 @@ function pushDir(name){
   var d = map[name];
   if(!d) return;
   if(mode==='multi' && !isHost){
-    if(roomRef) roomRef.child('inputs/' + fb.pid).set({x:d.x, y:d.y, n:Date.now()});
+    /* 透過 PeerJS 直接傳給房主 */
+    if(hostConn && hostConn.open){
+      try{ hostConn.send(JSON.stringify({type:'dir', pid:fb.pid, x:d.x, y:d.y})); }catch(e){}
+    }
   } else {
     if(player.queue.length<2) player.queue.push(d);
   }
