@@ -627,7 +627,7 @@ function addSingleScore(n){
     bestSingle = singleScore;
     try { localStorage.setItem('snake-best', String(bestSingle)); } catch(e){}
   }
-  var nl = 1 + Math.floor(singleScore/50);
+  var nl = Math.min(3, 1 + Math.floor(singleScore/150));
   if(nl !== singleLevel){ singleLevel = nl; restartTimer(); }
   updateHud();
 }
@@ -878,7 +878,8 @@ function moveSnake(s, nh){
 
 function delay(){
   if(mode==='multi') return isHost ? 130 : netDelay;
-  return Math.max(70, 170 - (singleLevel-1)*13);
+  var speeds = [170, 130, 100];
+  return speeds[Math.min(singleLevel-1, 2)];
 }
 function restartTimer(){ clearInterval(timer); timer = setInterval(tick, delay()); }
 
