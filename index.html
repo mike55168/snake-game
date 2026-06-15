@@ -910,14 +910,19 @@ function roomMsg(t){ $('room-msg').textContent = t || ''; }
 function createRoom(){
   if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式'); return; }
   roomMsg('建立中…');
-  roomCode = String(Math.floor(100000 + Math.random()*900000));
-  roomRef = fb.db.ref('rooms/' + roomCode);
-  isHost = true;
-  roomRef.set({host: fb.pid, state:'lobby', created: Date.now()}).then(function(){
-    roomRef.onDisconnect().remove();
-    joinAsPlayer();
-    roomMsg('');
-  }).catch(function(){ roomMsg('連線失敗,請檢查 Firebase 設定'); });
+  ablyConnect(function(){
+    roomCode = String(Math.floor(100000 + Math.random()*900000));
+    roomRef = fb.db.ref('rooms/' + roomCode);
+    isHost = true;
+    roomRef.set({host: fb.pid, state:'lobby', created: Date.now()}).then(function(){
+      roomRef.onDisconnect().remove();
+      ablyJoinChannel(roomCode, function(){
+        ablySubscribe();
+        joinAsPlayer();
+        roomMsg('');
+      });
+    }).catch(function(){ roomMsg('連線失敗,請檢查 Firebase 設定'); });
+  });
 }
 function joinRoom(code){
   if(!fbReady()){ roomMsg('尚未設定 Firebase,無法使用多人模式'); return; }
@@ -929,8 +934,13 @@ function joinRoom(code){
     roomCode = code;
     roomRef = fb.db.ref('rooms/' + roomCode);
     isHost = false;
-    joinAsPlayer();
-    roomMsg('');
+    ablyConnect(function(){
+      ablyJoinChannel(roomCode, function(){
+        ablySubscribe();
+        joinAsPlayer();
+        roomMsg('');
+      });
+    });
   }).catch(function(){ roomMsg('連線失敗,請檢查網路'); });
 }
 function joinAsPlayer(){
